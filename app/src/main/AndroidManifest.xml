@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!--
+<?xml version="1.0" encoding="UTF-8"?><!--
   ~ Copyright (C) 2017 The Android Open Source Project
   ~
   ~ Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,8 +13,7 @@
   ~ See the License for the specific language governing permissions and
   ~ limitations under the License
   -->
-<manifest package="com.example.android.biometricauth"
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:versionCode="1"
     android:versionName="1.0">
@@ -30,6 +28,7 @@
 
         <activity
             android:name="com.example.android.biometricauth.MainActivity"
+            android:exported="true"
             android:label="@string/application_name"
             android:theme="@style/Theme.AppCompat.Light.NoActionBar">
             <intent-filter>

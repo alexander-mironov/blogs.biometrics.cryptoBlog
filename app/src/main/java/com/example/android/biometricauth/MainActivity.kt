@@ -23,8 +23,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.AppCompatEditText
 import androidx.appcompat.widget.AppCompatTextView
 import androidx.biometric.BiometricManager
+import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
+import androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
 import androidx.biometric.BiometricPrompt
-import androidx.core.content.ContextCompat
 import java.nio.charset.Charset
 
 class MainActivity : AppCompatActivity() {
@@ -36,15 +37,14 @@ class MainActivity : AppCompatActivity() {
     private var readyToEncrypt: Boolean = false
     private lateinit var cryptographyManager: CryptographyManager
     private lateinit var secretKeyName: String
-    private lateinit var ciphertext:ByteArray
+    private lateinit var ciphertext: ByteArray
     private lateinit var initializationVector: ByteArray
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         cryptographyManager = CryptographyManager()
-        // e.g. secretKeyName = "biometric_sample_encryption_key"
-        secretKeyName = getString(R.string.secret_key_name)
+        secretKeyName = "sample_encryption_key"
         biometricPrompt = createBiometricPrompt()
         promptInfo = createPromptInfo()
 
@@ -55,59 +55,58 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun createBiometricPrompt(): BiometricPrompt {
-        val executor = ContextCompat.getMainExecutor(this)
-
         val callback = object : BiometricPrompt.AuthenticationCallback() {
             override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                 super.onAuthenticationError(errorCode, errString)
-                Log.d(TAG, "$errorCode :: $errString")
+                Log.d(TAG, "Error code: $errorCode :: $errString")
             }
 
             override fun onAuthenticationFailed() {
                 super.onAuthenticationFailed()
-                Log.d(TAG, "Authentication failed for an unknown reason")
+                Log.d(TAG, "Authentication failed for an unknown reason. Thread ${Thread.currentThread().name}")
             }
 
             override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                 super.onAuthenticationSucceeded(result)
-                Log.d(TAG, "Authentication was successful")
+                Log.d(TAG, "Authentication was successful. Thread ${Thread.currentThread().name}")
                 processData(result.cryptoObject)
             }
         }
 
-        //The API requires the client/Activity context for displaying the prompt view
-        val biometricPrompt = BiometricPrompt(this, executor, callback)
-        return biometricPrompt
+        return BiometricPrompt(this, callback)
     }
 
     private fun createPromptInfo(): BiometricPrompt.PromptInfo {
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
-                .setTitle(getString(R.string.prompt_info_title)) // e.g. "Sign in"
-                .setSubtitle(getString(R.string.prompt_info_subtitle)) // e.g. "Biometric for My App"
-                .setDescription(getString(R.string.prompt_info_description)) // e.g. "Confirm biometric to continue"
-                .setConfirmationRequired(false)
-                .setNegativeButtonText(getString(R.string.prompt_info_use_app_password)) // e.g. "Use Account Password"
-                // .setDeviceCredentialAllowed(true) // Allow PIN/pattern/password authentication.
-                // Also note that setDeviceCredentialAllowed and setNegativeButtonText are
-                // incompatible so that if you uncomment one you must comment out the other
-                .build()
+            .setTitle(getString(R.string.prompt_info_title))
+            .setSubtitle(getString(R.string.prompt_info_subtitle))
+            .setDescription(getString(R.string.prompt_info_description))
+            .setConfirmationRequired(false)
+            .setAllowedAuthenticators(DEVICE_CREDENTIAL or BIOMETRIC_STRONG)
+            .build()
         return promptInfo
     }
 
     private fun authenticateToEncrypt() {
         readyToEncrypt = true
-        if (BiometricManager.from(applicationContext).canAuthenticate() == BiometricManager
-                        .BIOMETRIC_SUCCESS) {
+        if (canAuthenticateUsingStrongBiometricsOrDeviceCredential()) {
             val cipher = cryptographyManager.getInitializedCipherForEncryption(secretKeyName)
             biometricPrompt.authenticate(promptInfo, BiometricPrompt.CryptoObject(cipher))
         }
     }
 
+    private fun canAuthenticateUsingStrongBiometricsOrDeviceCredential(): Boolean {
+        return BiometricManager.from(applicationContext)
+            .canAuthenticate(BIOMETRIC_STRONG or DEVICE_CREDENTIAL) == BiometricManager.BIOMETRIC_SUCCESS
+    }
+
     private fun authenticateToDecrypt() {
         readyToEncrypt = false
-        if (BiometricManager.from(applicationContext).canAuthenticate() == BiometricManager
-                        .BIOMETRIC_SUCCESS) {
-            val cipher = cryptographyManager.getInitializedCipherForDecryption(secretKeyName,initializationVector)
+        if (canAuthenticateUsingStrongBiometricsOrDeviceCredential()) {
+            val cipher = cryptographyManager.getInitializedCipherForDecryption(
+                secretKeyName,
+                initializationVector
+            )
             biometricPrompt.authenticate(promptInfo, BiometricPrompt.CryptoObject(cipher))
         }
 
